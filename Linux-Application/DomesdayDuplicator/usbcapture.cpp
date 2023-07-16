@@ -330,6 +330,8 @@ void UsbCapture::run(void)
     // Save the current scheduling policy and parameters
 #ifdef _WIN32
     // TODO: Implement pthread-win32 for scheduling on Windows
+#elif __APPLE__
+    // we're apple, we don't have sched_
 #else
     int oldSchedPolicy = sched_getscheduler(0);
     if (oldSchedPolicy == -1) oldSchedPolicy = SCHED_OTHER;
@@ -347,12 +349,18 @@ void UsbCapture::run(void)
         // Put the priority about 3/4 of the way through its range
         schedParams.sched_priority = (minSchedPriority + (3 * maxSchedPriority)) / 4;
     }
-    if (sched_setscheduler(0, SCHED_RR, &schedParams) != -1) {
-        qDebug() << "UsbCapture::run(): Real-time scheduling enabled with priority" << schedParams.sched_priority;
-    } else {
-        // Continue anyway, but print a warning
-        qInfo() << "UsbCapture::run(): Unable to enable real-time scheduling for capture thread";
-    }
+
+    #ifdef __APPLE__
+        // we're apple, we don't have sched_
+        qInfo() << "UsbCapture::run(): TODO: macOS real-time scheduling";
+    #else
+        if (sched_setscheduler(0, SCHED_RR, &schedParams) != -1) {
+            qDebug() << "UsbCapture::run(): Real-time scheduling enabled with priority" << schedParams.sched_priority;
+        } else {
+            // Continue anyway, but print a warning
+            qInfo() << "UsbCapture::run(): Unable to enable real-time scheduling for capture thread";
+        }
+    #endif
 
     // Set up the initial transfers
     for (qint32 transferNumber = 0; transferNumber < SIMULTANEOUSTRANSFERS; transferNumber++) {
@@ -419,6 +427,8 @@ void UsbCapture::run(void)
 
 #ifdef _WIN32
     // TODO: Implement pthread-win32 for scheduling on Windows
+#elif __APPLE__
+    // we're apple, we don't have sched_
 #else
     // Return to the original scheduling policy while we're cleaning up
     if (sched_setscheduler(0, oldSchedPolicy, &oldSchedParam) == -1) {
